@@ -4,7 +4,9 @@ import (
 	"bufio"
 	"encoding/hex"
 	"fmt"
+	"github.com/liyouxina/siot/config"
 	"net"
+	"strconv"
 )
 
 func process(conn net.Conn) {
@@ -30,10 +32,19 @@ func process(conn net.Conn) {
 }
 
 func main() {
-	listen, err := net.Listen("tcp", "0.0.0.0:20000")
+	defer func() {
+		err := recover()
+		no
+	}()
+	run()
+}
+
+func run() {
+	port := strconv.Itoa(config.Config.MingKongConfig.Port)
+	listen, err := net.Listen("tcp", "0.0.0.0:"+port)
 	if err != nil {
 		fmt.Println("listen failed, err:", err)
-		return
+		panic(err)
 	}
 	for {
 		conn, err := listen.Accept() // 建立连接
