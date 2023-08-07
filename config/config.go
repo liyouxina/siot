@@ -1,18 +1,33 @@
 package config
 
-import "os"
+import (
+	"gopkg.in/yaml.v2"
+	"os"
+)
 
-type Monitor struct {
-	Ip   string `json:"ip"`
-	Port int    `json:"port"`
+var Config *AllConfig
+
+type MonitorConfig struct {
+	Ip   string `json:"ip" yaml:"ip"`
+	Port int    `json:"port" yaml:"port"`
 }
 
 type MingKongConfig struct {
-	Port    int `json:"port"`
-	Monitor `json:"monitor"`
+	Port int `json:"port" yaml:"port"`
 }
 
-func GetMingKongConfig() {
+type AllConfig struct {
+	MonitorConfig
+	MingKongConfig
+}
+
+func init() {
 	content, err := os.ReadFile("./config/mingkong.yml")
-	yaml
+	if err != nil {
+		panic(err)
+	}
+	err = yaml.Unmarshal(content, Config)
+	if err != nil {
+		panic(err)
+	}
 }

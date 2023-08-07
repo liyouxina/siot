@@ -14,5 +14,5 @@ type Device struct {
 }
 
 func (*Device) List() {
-
+	
 }
