@@ -34,7 +34,7 @@ func process(conn net.Conn) {
 func main() {
 	defer func() {
 		err := recover()
-		no
+		fmt.Println(err)
 	}()
 	run()
 }

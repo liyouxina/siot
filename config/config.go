@@ -1,7 +1,7 @@
 package config
 
 import (
-	"gopkg.in/yaml.v2"
+	"encoding/json"
 	"os"
 )
 
@@ -16,17 +16,23 @@ type MingKongConfig struct {
 	Port int `json:"port" yaml:"port"`
 }
 
+type LampConfig struct {
+	Port int `json:"port" yaml:"port"`
+}
+
 type AllConfig struct {
-	MonitorConfig
-	MingKongConfig
+	MonitorConfig  `json:"monitor_config"`
+	MingKongConfig `json:"ming_kong_config"`
+	LampConfig     `json:"lamp_config"`
 }
 
 func init() {
-	content, err := os.ReadFile("./config/mingkong.yml")
+	content, err := os.ReadFile("./config/config.json")
 	if err != nil {
 		panic(err)
 	}
-	err = yaml.Unmarshal(content, Config)
+	Config = &AllConfig{}
+	err = json.Unmarshal(content, Config)
 	if err != nil {
 		panic(err)
 	}
