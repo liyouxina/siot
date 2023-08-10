@@ -5,12 +5,44 @@ import (
 	"encoding/hex"
 	"fmt"
 	"github.com/gin-gonic/gin"
+	"github.com/liyouxina/siot/entity"
 	"net"
+	"time"
 )
 
 func main() {
 	serve()
 	byteServe()
+	go monitor()
+}
+
+func monitor() {
+	for {
+		time.Sleep(time.Minute)
+
+	}
+}
+
+func scanDevices() {
+	for {
+		cursor := int64(0)
+		devices := entity.ListDeviceByCursor(cursor, 50)
+		if devices == nil || len(devices) == 0 {
+			break
+		}
+		cursor = devices[len(devices)-1].Id
+		for _, device := range devices {
+			keepDevice(device)
+		}
+	}
+
+}
+
+func keepDevice(device *entity.Device) {
+	conn := agentPool[device.DeviceId]
+	if conn == nil {
+		// mysql断开链接状态
+	}
 }
 
 func serve() {
