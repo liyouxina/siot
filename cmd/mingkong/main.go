@@ -4,6 +4,7 @@ import (
 	"bufio"
 	"encoding/hex"
 	"fmt"
+	"github.com/gin-gonic/gin"
 	"github.com/liyouxina/siot/config"
 	"net"
 	"strconv"
@@ -36,7 +37,37 @@ func main() {
 		err := recover()
 		fmt.Println(err)
 	}()
+	agentPool = map[string]*Agent{}
 	run()
+}
+
+func serve() {
+	server := gin.Default()
+	server.GET("/command", func(context *gin.Context) {
+
+	})
+
+	server.Run("0.0.0.0:8002")
+}
+
+const (
+	GET_INFO   = "getInfo"
+	OPEN_LAMP  = "open"
+	CLOSE_LAMP = "close"
+)
+
+func command(context *gin.Context) {
+	cmd := context.Query("command")
+	if GET_INFO == cmd {
+
+	}
+}
+
+var agentPool map[string]*Agent
+
+type Agent struct {
+	Coon   net.Conn
+	Status string
 }
 
 func run() {
@@ -55,3 +86,9 @@ func run() {
 		go process(conn) // 启动一个goroutine处理连接
 	}
 }
+
+const (
+	HEX_GET_DEVICE_ID = "50"
+	HEX_GET_STATUS    = "51"
+	HEX_TURN_ON_OFF   = "52"
+)

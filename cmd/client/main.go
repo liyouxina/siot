@@ -16,6 +16,13 @@ func sender(conn net.Conn) {
 
 }
 
+var agentPool map[string]*Agent
+
+type Agent struct {
+	Coon   net.Conn
+	Status string
+}
+
 func main() {
 	server := "127.0.0.1:20000"
 	tcpAddr, err := net.ResolveTCPAddr("tcp4", server)
