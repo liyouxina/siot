@@ -5,7 +5,6 @@ go 1.20
 require (
 	github.com/gin-gonic/gin v1.9.1
 	github.com/nsqio/go-nsq v1.1.0
-	gopkg.in/yaml.v2 v2.4.0
 )
 
 require (
