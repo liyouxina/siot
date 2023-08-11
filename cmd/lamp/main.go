@@ -14,7 +14,7 @@ import (
 func main() {
 	agentPool = map[string]*Agent{}
 	systemIdAgentPool = map[string]*Agent{}
-	serve()
+	go serve()
 	byteServe()
 	go monitor()
 }
@@ -59,6 +59,7 @@ func serve() {
 
 const (
 	GET_ALL_AGENTS        = "getAllAgents"
+	GET_ALL_BY_DEVICE_ID  = "getAllAgentsByDeviceId"
 	GET_INFO              = "getInfo"
 	OPEN_LAMP             = "open"
 	CLOSE_LAMP            = "close"
@@ -72,24 +73,20 @@ type Resp struct {
 
 func command(context *gin.Context) {
 	cmd := context.Query("command")
-	deviceId := context.Query("deviceId")
+	// deviceId := context.Query("deviceId")
 	systemId := context.Query("systemId")
 	hexContent := context.Query("hex")
-	agent := agentPool[deviceId]
-	if agent == nil {
-		context.JSON(200, Resp{
-			Msg: "没找到这个设备",
-		})
-		return
-	}
+
 	if GET_INFO == cmd {
 
 	} else if OPEN_LAMP == cmd {
 
 	} else if CLOSE_LAMP == cmd {
 
+	} else if GET_ALL_BY_DEVICE_ID == cmd {
+		context.JSON(200, fmt.Sprintln("%v", agentPool))
 	} else if SEND_MSG_BY_SYSTEM_ID == cmd {
-		agent = systemIdAgentPool[systemId]
+		agent := systemIdAgentPool[systemId]
 		if agent == nil {
 			context.JSON(200, Resp{
 				Msg: "没有这个设备",
@@ -110,9 +107,20 @@ func command(context *gin.Context) {
 			})
 			return
 		}
+		reader := bufio.NewReader(agent.Coon)
+		var buf [4096]byte
+		n, err := reader.Read(buf[:]) // 读取数据
+		if err != nil {
+			context.JSON(200, Resp{
+				Msg: "接收数据有问题" + err.Error(),
+			})
+			return
+		}
+		recvStr := string(buf[:n])
 		context.JSON(200, Resp{
-			Msg: "发送成功",
+			Msg: fmt.Sprintf("发送成功 返回值 %s", recvStr),
 		})
+
 	} else if GET_ALL_AGENTS == cmd {
 		context.JSON(200, fmt.Sprintln("%v", systemIdAgentPool))
 	} else {
@@ -123,7 +131,7 @@ func command(context *gin.Context) {
 }
 
 func byteServe() {
-	listen, err := net.Listen("tcp", "0.0.0.0:8001")
+	listen, err := net.Listen("tcp4", "0.0.0.0:8001")
 	if err != nil {
 		fmt.Println("listen failed, err:", err)
 		panic(err)
@@ -138,7 +146,7 @@ func byteServe() {
 			Coon: conn,
 		}
 		go registerDeviceId(conn)
-		go process(conn) // 启动一个goroutine处理连接
+		go process(conn)
 	}
 }
 
@@ -171,6 +179,14 @@ type Agent struct {
 func process(conn net.Conn) {
 	defer conn.Close()
 	for {
+
+		hexString := "a55aff001b4a53534831393035303030355d19bbde0000a32b55aa"
+		byteArray, err := hex.DecodeString(hexString)
+		if err != nil {
+			fmt.Println("send failed, err:", err)
+			break
+		}
+		_, _ = conn.Write(byteArray)
 		reader := bufio.NewReader(conn)
 		var buf [4096]byte
 		n, err := reader.Read(buf[:]) // 读取数据
@@ -180,12 +196,5 @@ func process(conn net.Conn) {
 		}
 		recvStr := string(buf[:n])
 		fmt.Println("收到client端发来的数据：", recvStr)
-		hexString := "a55aff001b4a53534831393035303030355d19bbde0000a32b55aa"
-		byteArray, err := hex.DecodeString(hexString)
-		if err != nil {
-			fmt.Println("send failed, err:", err)
-			break
-		}
-		conn.Write(byteArray) // 发送数据
 	}
 }
