@@ -7,10 +7,13 @@ import (
 	"github.com/gin-gonic/gin"
 	"github.com/liyouxina/siot/entity"
 	"net"
+	"strconv"
 	"time"
 )
 
 func main() {
+	agentPool = map[string]*Agent{}
+	systemIdAgentPool = map[string]*Agent{}
 	serve()
 	byteServe()
 	go monitor()
@@ -53,9 +56,12 @@ func serve() {
 }
 
 const (
-	GET_INFO   = "getInfo"
-	OPEN_LAMP  = "open"
-	CLOSE_LAMP = "close"
+	GET_ALL_AGENTS        = "getAllAgents"
+	GET_INFO              = "getInfo"
+	OPEN_LAMP             = "open"
+	CLOSE_LAMP            = "close"
+	SEND_MSG_BY_SYSTEM_ID = "sendMsgBySystemId"
+	SEND_MSG_BY_ID        = "sendMsgById"
 )
 
 type Resp struct {
@@ -65,6 +71,8 @@ type Resp struct {
 func command(context *gin.Context) {
 	cmd := context.Query("command")
 	deviceId := context.Query("deviceId")
+	systemId := context.Query("systemId")
+	hexContent := context.Query("hex")
 	agent := agentPool[deviceId]
 	if agent == nil {
 		context.JSON(200, Resp{
@@ -78,6 +86,33 @@ func command(context *gin.Context) {
 
 	} else if CLOSE_LAMP == cmd {
 
+	} else if SEND_MSG_BY_SYSTEM_ID == cmd {
+		agent = systemIdAgentPool[systemId]
+		if agent == nil {
+			context.JSON(200, Resp{
+				Msg: "没有这个设备",
+			})
+			return
+		}
+		content, err := hex.DecodeString(hexContent)
+		if err != nil {
+			context.JSON(200, Resp{
+				Msg: err.Error(),
+			})
+			return
+		}
+		_, err = agent.Coon.Write(content)
+		if err != nil {
+			context.JSON(200, Resp{
+				Msg: err.Error(),
+			})
+			return
+		}
+		context.JSON(200, Resp{
+			Msg: "发送成功",
+		})
+	} else if GET_ALL_AGENTS == cmd {
+		context.JSON(200, fmt.Sprintln("%v", systemIdAgentPool))
 	} else {
 		context.JSON(200, Resp{
 			Msg: "没有这个操作",
@@ -97,16 +132,23 @@ func byteServe() {
 			fmt.Println("accept failed, err:", err)
 			continue
 		}
-		getDeviceIdCmdBytes, _ := hex.DecodeString(HEX_GET_DEVICE_ID)
-		_, _ = conn.Write(getDeviceIdCmdBytes)
-		var buf [4096]byte
-		reader := bufio.NewReader(conn)
-		n, _ := reader.Read(buf[:])
-		recvStr := string(buf[:n])
-		agentPool[recvStr] = &Agent{
+		systemIdAgentPool[strconv.Itoa(time.Now().Minute())] = &Agent{
 			Coon: conn,
 		}
+		go registerDeviceId(conn)
 		go process(conn) // 启动一个goroutine处理连接
+	}
+}
+
+func registerDeviceId(conn net.Conn) {
+	getDeviceIdCmdBytes, _ := hex.DecodeString(HEX_GET_DEVICE_ID)
+	_, _ = conn.Write(getDeviceIdCmdBytes)
+	var buf [4096]byte
+	reader := bufio.NewReader(conn)
+	n, _ := reader.Read(buf[:])
+	recvStr := string(buf[:n])
+	agentPool[recvStr] = &Agent{
+		Coon: conn,
 	}
 }
 
@@ -117,6 +159,7 @@ const (
 )
 
 var agentPool map[string]*Agent
+var systemIdAgentPool map[string]*Agent
 
 type Agent struct {
 	Coon   net.Conn
