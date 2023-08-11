@@ -45,7 +45,9 @@ func keepDevice(device *entity.Device) {
 	conn := agentPool[device.DeviceId]
 	if conn == nil {
 		// mysql断开链接状态
+		entity.ChangeDeviceState(device.Id, "disconnected")
 	}
+
 }
 
 func serve() {
