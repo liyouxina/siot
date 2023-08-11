@@ -9,7 +9,7 @@ type Device struct {
 	Name     string `json:"name"`
 	DeviceId string `json:"deviceId"`
 	Location string `json:"location"`
-	State    string `json:"state"`
+	Status   string `json:"status"`
 }
 
 func (Device) TableName() string {
@@ -17,6 +17,10 @@ func (Device) TableName() string {
 }
 
 const tableName = "device"
+
+func ChangeDeviceState(id int64, status string) *gorm.DB {
+	return db.Table(tableName).Where("id = ?", id).UpdateColumn("status", status)
+}
 
 func CreateDevice(device *Device) *gorm.DB {
 	return db.Create(device)
