@@ -1,9 +1,10 @@
 package main
 
 import (
+	"encoding/hex"
 	"fmt"
 	"net"
-	"time"
+	"strconv"
 )
 
 func sender(conn net.Conn) {
@@ -24,12 +25,12 @@ type Agent struct {
 }
 
 func main() {
-	conn, err := net.Dial("tcp", "127.0.0.1:8001")
-	if err != nil {
-		fmt.Println(err.Error())
+	aa := []byte{0xff, 0xff, 0xff, 0xff, 0x00, 0x50}
+	var a byte
+	a = byte(0)
+	for _, v := range aa {
+		a = a + v
 	}
-	for {
-		time.Sleep(time.Millisecond * 300)
-		conn.Write([]byte{2})
-	}
+	aaaa, _ := hex.DecodeString(strconv.Itoa(int(a)))
+	fmt.Println(aaaa)
 }

@@ -10,4 +10,5 @@ func main() {
 	aa := make([]byte, 300)
 	c.Read(aa)
 	fmt.Println(aa)
+	c.Close()
 }

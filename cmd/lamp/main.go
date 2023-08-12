@@ -8,6 +8,7 @@ import (
 	"github.com/liyouxina/siot/entity"
 	"net"
 	"strconv"
+	"strings"
 	"time"
 )
 
@@ -17,6 +18,28 @@ func main() {
 	go serve()
 	byteServe()
 	go monitor()
+	go releaseDisconnectedAgent()
+}
+
+func releaseDisconnectedAgent() {
+	for {
+		time.Sleep(time.Second)
+		for k, agent := range agentPool {
+			if isConnected(agent.Coon) {
+				_ = agent.Coon.Close()
+				agentPool[k] = nil
+				systemIdAgentPool[k] = nil
+			}
+		}
+		for k, agent := range systemIdAgentPool {
+			if isConnected(agent.Coon) {
+				_ = agent.Coon.Close()
+				agentPool[k] = nil
+				systemIdAgentPool[k] = nil
+			}
+		}
+	}
+
 }
 
 func monitor() {
@@ -93,6 +116,7 @@ func command(context *gin.Context) {
 			})
 			return
 		}
+		hexContent = strings.Join(strings.Split(hexContent, " "), "")
 		content, err := hex.DecodeString(hexContent)
 		if err != nil {
 			context.JSON(200, Resp{
@@ -174,27 +198,4 @@ var systemIdAgentPool map[string]*Agent
 type Agent struct {
 	Coon   net.Conn
 	Status string
-}
-
-func process(conn net.Conn) {
-	defer conn.Close()
-	for {
-
-		hexString := "a55aff001b4a53534831393035303030355d19bbde0000a32b55aa"
-		byteArray, err := hex.DecodeString(hexString)
-		if err != nil {
-			fmt.Println("send failed, err:", err)
-			break
-		}
-		_, _ = conn.Write(byteArray)
-		reader := bufio.NewReader(conn)
-		var buf [4096]byte
-		n, err := reader.Read(buf[:]) // 读取数据
-		if err != nil {
-			fmt.Println("read from client failed, err:", err)
-			break
-		}
-		recvStr := string(buf[:n])
-		fmt.Println("收到client端发来的数据：", recvStr)
-	}
 }
