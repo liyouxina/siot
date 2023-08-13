@@ -13,25 +13,31 @@ type Device struct {
 }
 
 func (Device) TableName() string {
-	return tableName
+	return deviceTableName
 }
 
-const tableName = "device"
+const deviceTableName = "device"
 
 func ChangeDeviceState(id int64, status string) *gorm.DB {
-	return db.Table(tableName).Where("id = ?", id).UpdateColumn("status", status)
+	return db.Table(deviceTableName).Where("id = ?", id).UpdateColumn("status", status)
+}
+
+func GetByDeviceId(deviceId string) *Device {
+	var device *Device
+	db.Table(deviceTableName).Where("device_id = ?", deviceId).First(device)
+	return device
 }
 
 func CreateDevice(device *Device) *gorm.DB {
-	return db.Create(device)
+	return db.Table(deviceTableName).Create(device)
 }
 
 func BatchCreateDevice(devices []*Device) *gorm.DB {
-	return db.Create(devices)
+	return db.Table(deviceTableName).Create(devices)
 }
 
 func ListDeviceByCursor(id int64, limit int) []*Device {
 	devices := make([]*Device, limit)
-	db.Table(tableName).Select("*").Where("id > ?", id).Limit(limit).Find(&devices)
+	db.Table(deviceTableName).Select("*").Where("id > ?", id).Limit(limit).Find(&devices)
 	return devices
 }
