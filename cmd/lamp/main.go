@@ -16,9 +16,9 @@ func main() {
 
 func initLog() {
 	log.SetFormatter(&log.JSONFormatter{})
-	logFile, err := os.Create("lamp.log")
-	if err != nil {
-		log.Fatal(err)
-	}
-	log.SetOutput(logFile)
+	//logFile, err := os.Create("lamp.log")
+	//if err != nil {
+	//	log.Fatal(err)
+	//}
+	log.SetOutput(os.Stdout)
 }

@@ -25,13 +25,15 @@ type Agent struct {
 }
 
 const (
-	HEX_GET_DEVICE_ID = "5aa506ffffffff00504c"
+	HEX_GET_DEVICE_ID   = "5aa506ffffffff00504c"
+	HEX_GET_DEVICE_INFO = "5aa506%s0051"
+	HEX_OPEN_CLOSE      = "5aa508%s0052%s%s"
 )
 
 const (
-	COMMAND_GET_DEVICE_ID = byte(50)
-	COMMAND_GET_STATUS    = byte(51)
-	COMMAND_TURN_ON_OFF   = byte(52)
+	COMMAND_GET_DEVICE_ID = byte(0x50)
+	COMMAND_GET_STATUS    = byte(0x51)
+	COMMAND_TURN_ON_OFF   = byte(0x52)
 )
 
 const (
@@ -52,6 +54,7 @@ func byteServe() {
 			log.Warnf("接收连接出错 %s", err.Error())
 			continue
 		}
+		log.Infof("接收连接 接收到连接")
 		agent := Agent{
 			Coon:     conn,
 			mutex:    sync.Mutex{},
@@ -60,12 +63,22 @@ func byteServe() {
 		systemIdAgentPool[agent.SystemId] = &agent
 		resp, err := agent.GetDeviceId()
 		if err != nil {
-			log.Warnf("接收连接 获取设备号出错 %s", err.Error())
+			log.Warnf("接收连接 获取设备号出错 %s %s", agent.SystemId, err.Error())
 			agent.Status = "接收连接 获取设备号出错"
+			continue
+		}
+		if resp == nil {
+			log.Warnf("接收连接 获取设备号为空 %s", agent.SystemId)
+			agent.Status = "接收连接 获取设备号为空"
+			continue
 		}
 		agent.DeviceId = resp.DeviceId
 		deviceIdAgentPool[resp.DeviceId] = &agent
-		deviceDO := entity.GetByDeviceId(agent.DeviceId)
+		deviceDO, err := entity.GetByDeviceId(agent.DeviceId)
+		if err != nil {
+			log.Warnf("接受连接 读取数据库出错 %s %s %s", agent.SystemId, agent.DeviceId, err.Error())
+			continue
+		}
 		if deviceDO == nil {
 			deviceDO = &entity.Device{
 				Name:     "lamp " + agent.SystemId,
@@ -74,17 +87,19 @@ func byteServe() {
 			}
 			tx := entity.CreateDevice(deviceDO)
 			if tx.Error != nil {
-				log.Warnf("接受连接 设备写入数据库出错 %s", tx.Error.Error())
+				log.Warnf("接受连接 设备写入数据库出错 %s %s %s", agent.SystemId, agent.DeviceId, tx.Error.Error())
 			}
 			if tx.RowsAffected == 0 {
-				log.Warnf("接受连接 设备写入数据库失败")
+				log.Warnf("接受连接 设备写入数据库失败 %s %s", agent.SystemId, agent.DeviceId)
 			}
+			log.Infof("接受连接 设备写入数据库成功 %s %s", agent.SystemId, agent.DeviceId)
 		}
 	}
 }
 
 func (agent *Agent) GetDeviceId() (*ByteResp, error) {
 	agent.mutex.Lock()
+	defer agent.mutex.Unlock()
 	conn := agent.Coon
 	byteArray, err := hex.DecodeString(HEX_GET_DEVICE_ID)
 	if err != nil {
@@ -110,17 +125,99 @@ func (agent *Agent) GetDeviceId() (*ByteResp, error) {
 		log.Warnf("向设备请求设备号 解析返回数据格式出错 %s", err.Error())
 		return nil, err
 	}
-	agent.mutex.Unlock()
 	log.WithField("接受数据", resp).Info("向设备请求设备号 返回成功")
 	return resp, nil
 }
 
 func (agent *Agent) GetDeviceInfo() (*ByteResp, error) {
-	return nil, nil
+	agent.mutex.Lock()
+	defer agent.mutex.Unlock()
+	if agent.DeviceId == "" {
+		return nil, errors.New("获取设备信息 agent设备号为空")
+	}
+	conn := agent.Coon
+	requestString := fmt.Sprintf(HEX_GET_DEVICE_INFO, agent.DeviceId)
+	requestHexByte, err := hex.DecodeString(requestString)
+	if err != nil {
+		log.Warnf("获取设备信息 请求转换成16进制出错 %s", err.Error())
+		return nil, err
+	}
+	verifyCode := genVerifyCode(requestHexByte[3:])
+	requestHexByte = append(requestHexByte, verifyCode)
+	log.WithField("请求内容", requestHexByte).Infof("获取设备信息 请求内容")
+
+	_, err = conn.Write(requestHexByte)
+	if err != nil {
+		log.Warnf("获取设备信息 发送数据出错 %s", err.Error())
+		return nil, err
+	}
+	reader := bufio.NewReader(conn)
+	var buf [4096]byte
+	n, err := reader.Read(buf[:]) // 读取数据
+	if err != nil {
+		log.Warnf("获取设备信息 接收返回消息出错 %s", err.Error())
+		return nil, err
+	}
+
+	log.WithField("接收数据", buf[:n]).Info("获取设备信息 接收到数据")
+	resp, err := getRespMsg(buf[:n])
+	if err != nil {
+		log.Warnf("获取设备信息 解析返回数据格式出错 %s", err.Error())
+		return nil, err
+	}
+	log.WithField("接受数据", resp).Info("获取设备信息 返回成功")
+	return resp, nil
+}
+
+func (agent *Agent) OpenClose(isOpen bool, roadId int) (*ByteResp, error) {
+	agent.mutex.Lock()
+	defer agent.mutex.Unlock()
+	if agent.DeviceId == "" {
+		return nil, errors.New("开关设备 agent设备号为空")
+	}
+	conn := agent.Coon
+	commandString := ""
+	if isOpen {
+		commandString = fmt.Sprintf("0%d00", roadId)
+	} else {
+		commandString = fmt.Sprintf("000%d", roadId)
+	}
+	requestString := fmt.Sprintf(HEX_OPEN_CLOSE, agent.DeviceId, commandString)
+	requestHexByte, err := hex.DecodeString(requestString)
+	if err != nil {
+		log.Warnf("开关设备 请求转换成16进制出错 %s", err.Error())
+		return nil, err
+	}
+	verifyCode := genVerifyCode(requestHexByte[3:])
+	requestHexByte = append(requestHexByte, verifyCode)
+	log.WithField("请求内容", requestHexByte).Infof("开关设备 请求内容")
+
+	_, err = conn.Write(requestHexByte)
+	if err != nil {
+		log.Warnf("开关设备 发送数据出错 %s", err.Error())
+		return nil, err
+	}
+	reader := bufio.NewReader(conn)
+	var buf [4096]byte
+	n, err := reader.Read(buf[:]) // 读取数据
+	if err != nil {
+		log.Warnf("开关设备 接收返回消息出错 %s", err.Error())
+		return nil, err
+	}
+
+	log.WithField("接收数据", buf[:n]).Info("开关设备 接收到数据")
+	resp, err := getRespMsg(buf[:n])
+	if err != nil {
+		log.Warnf("开关设备 解析返回数据格式出错 %s", err.Error())
+		return nil, err
+	}
+	log.WithField("接受数据", resp).Info("开关设备 返回成功")
+	return resp, nil
 }
 
 func (agent *Agent) sendMsg(content string) (*string, error) {
 	agent.mutex.Lock()
+	defer agent.mutex.Unlock()
 	conn := agent.Coon
 	byteArray, err := hex.DecodeString(content)
 	if err != nil {
@@ -145,10 +242,44 @@ func (agent *Agent) sendMsg(content string) (*string, error) {
 	return &resp, nil
 }
 
+func getDeviceIdHex(deviceId string) (*string, error) {
+	deviceIdInt, err := strconv.Atoi(deviceId)
+	if err != nil {
+		log.Warnf("转换设备号为十六进制字符串失败 %s", deviceId)
+		return nil, err
+	}
+	hexStr := strconv.FormatInt(int64(deviceIdInt), 16)
+	if len(hexStr) > 8 {
+		log.Warnf("转换设备号为十六进制字符串 字符串过长 %s", deviceIdInt)
+		return nil, errors.New("转换设备号为十六进制字符串 字符串过长")
+	}
+	for len(hexStr) < 8 {
+		hexStr = "0" + hexStr
+	}
+	return &hexStr, nil
+}
+
+func byteToHexString(content []byte) string {
+	result := ""
+	for _, c := range content {
+		hexStr := strconv.FormatInt(int64(c), 16)
+		result = result + hexStr
+	}
+	return result
+}
+
 type ByteResp struct {
-	Type     string
-	DeviceId string
-	Length   int
+	Type           string `json:"type"`
+	DeviceId       string `json:"deviceId"`
+	Length         int    `json:"length"`
+	DeviceInfoResp `json:"deviceInfoResp"`
+}
+
+type DeviceInfoResp struct {
+	Signal     int `json:"signal"`     // 信号强度
+	OpenStatus int `json:"openStatus"` // 开关状态
+	OuterOpen  int `json:"outerOpen"`  // 外部开关量
+	Light      int `json:"light"`      // 光照值
 }
 
 func getRespMsg(content []byte) (*ByteResp, error) {
@@ -159,8 +290,9 @@ func getRespMsg(content []byte) (*ByteResp, error) {
 		return nil, errors.New("解析包 包头部不正确")
 	}
 	length := int(content[2])
-	if length > len(content)-4 {
-		return nil, errors.New("解析包 返回包长度大于实际包长度")
+	if length != len(content)-4 {
+		log.Warnf("解析包 返回包长度不等于实际包长度 包长度 %d 实际长度 %d", int(length), len(content)-3)
+		return nil, errors.New("解析包 返回包长度不等于实际包长度")
 	}
 	result := &ByteResp{
 		Length:   length,
@@ -170,12 +302,18 @@ func getRespMsg(content []byte) (*ByteResp, error) {
 	if result.Type == "" {
 		return nil, errors.New("解析包 返回未知的操作指令")
 	}
+	if content[8] != COMMAND_GET_DEVICE_ID {
+		result.Signal = int(content[9])
+		result.OpenStatus = int(content[10])
+		result.OuterOpen = int(content[11])
+		result.Light = int(content[12])
+	}
 	return result, nil
 }
 
 func getCommand(command byte) string {
 	if command == COMMAND_GET_DEVICE_ID {
-		return COMMAND_GET_STATUS_STRING
+		return COMMAND_GET_DEVICE_ID_STRING
 	} else if command == COMMAND_GET_STATUS {
 		return COMMAND_GET_STATUS_STRING
 	} else if command == COMMAND_TURN_ON_OFF {
@@ -186,9 +324,9 @@ func getCommand(command byte) string {
 }
 
 func genVerifyCode(verifyContent []byte) byte {
-	a := byte(0)
+	result := byte(0)
 	for _, c := range verifyContent {
-		a = a + c
+		result = result + c
 	}
-	return a
+	return result
 }

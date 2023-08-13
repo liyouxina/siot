@@ -22,10 +22,10 @@ func ChangeDeviceState(id int64, status string) *gorm.DB {
 	return db.Table(deviceTableName).Where("id = ?", id).UpdateColumn("status", status)
 }
 
-func GetByDeviceId(deviceId string) *Device {
-	var device *Device
-	db.Table(deviceTableName).Where("device_id = ?", deviceId).First(device)
-	return device
+func GetByDeviceId(deviceId string) (*Device, error) {
+	device := &Device{}
+	tx := db.Table(deviceTableName).Where("device_id = ?", deviceId).First(device)
+	return device, tx.Error
 }
 
 func CreateDevice(device *Device) *gorm.DB {

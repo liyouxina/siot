@@ -11,8 +11,8 @@ type Resp struct {
 
 func serve() {
 	server := gin.Default()
-	server.GET("/getAllAgents", getAllAgents)
 	server.GET("/getAllAgentsWithDeviceId", getAllAgentsWithDeviceId)
+	server.GET("/getAllAgentsWithSystemId", getAllAgentsWithSystemId)
 	server.GET("/sendMsgBySystemId", sendMsgBySystemId)
 	server.GET("/sendMsgByDeviceId", sendMsgByDeviceId)
 	server.GET("/openLamp", sendMsgByDeviceId)
@@ -21,17 +21,13 @@ func serve() {
 	_ = server.Run("0.0.0.0:8002")
 }
 
-func getAllAgents(context *gin.Context) {
-	context.JSON(200, Resp{
-		Msg: toJSONString(systemIdAgentPool),
-	})
+func getAllAgentsWithSystemId(context *gin.Context) {
+	context.JSON(200, systemIdAgentPool)
 	return
 }
 
 func getAllAgentsWithDeviceId(context *gin.Context) {
-	context.JSON(200, Resp{
-		Msg: toJSONString(deviceIdAgentPool),
-	})
+	context.JSON(200, deviceIdAgentPool)
 	return
 }
 
@@ -119,8 +115,16 @@ func getDeviceInfo(context *gin.Context) {
 		context.JSON(200, Resp{
 			Msg: "没找到这个设备",
 		})
+		return
 	}
-
+	resp, err := agent.GetDeviceInfo()
+	if err != nil {
+		context.JSON(200, Resp{
+			Msg: err.Error(),
+		})
+		return
+	}
+	context.JSON(200, resp)
 }
 
 func toJSONString(content interface{}) string {
