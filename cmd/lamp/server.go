@@ -27,9 +27,11 @@ func serve() {
 func index(context *gin.Context) {
 	contentByte, err := os.ReadFile("./lamp.html")
 	if err != nil {
-		log.
+		log.Warnf("网站首页文件读取失败 %s", err.Error())
+		context.JSON(200, err.Error())
+		return
 	}
-	context.Writer.Write()
+	_, _ = context.Writer.Write(contentByte)
 }
 
 func getAllAgentsWithSystemId(context *gin.Context) {
