@@ -3,6 +3,8 @@ package main
 import (
 	"encoding/json"
 	"github.com/gin-gonic/gin"
+	log "github.com/sirupsen/logrus"
+	"os"
 )
 
 type Resp struct {
@@ -18,7 +20,16 @@ func serve() {
 	server.GET("/openLamp", sendMsgByDeviceId)
 	server.GET("/closeLamp", sendMsgByDeviceId)
 	server.GET("/getDeviceInfo", getDeviceInfo)
+	server.GET("/", index)
 	_ = server.Run("0.0.0.0:8002")
+}
+
+func index(context *gin.Context) {
+	contentByte, err := os.ReadFile("./lamp.html")
+	if err != nil {
+		log.
+	}
+	context.Writer.Write()
 }
 
 func getAllAgentsWithSystemId(context *gin.Context) {
