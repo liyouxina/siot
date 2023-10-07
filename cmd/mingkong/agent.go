@@ -1,23 +1,18 @@
 package main
 
 import (
+	"bufio"
+	"encoding/hex"
 	"fmt"
-	"github.com/liyouxina/siot/entity"
 	log "github.com/sirupsen/logrus"
 	"net"
-	"strconv"
-	"sync"
-	"time"
 )
 
 var deviceIdAgentPool map[string]*MingAgent
-var systemIdAgentPool map[string]*MingAgent
 
 type MingAgent struct {
 	DeviceId string
-	SystemId string
 	Status   string
-	mutex    sync.Mutex
 }
 
 type MingReq struct {
@@ -26,8 +21,11 @@ type MingReq struct {
 	Time     int64
 }
 
+type MingResp struct {
+}
+
 func byteServe() {
-	listen, err := net.Listen("tcp4", "0.0.0.0:8001")
+	listen, err := net.Listen("tcp4", "0.0.0.0:8005")
 	if err != nil {
 		fmt.Println("listen failed, err:", err)
 		panic(err)
@@ -40,44 +38,46 @@ func byteServe() {
 		}
 		log.Infof("接收连接 接收到连接")
 
-		agent := MingAgent{
-			Coon:     conn,
-			mutex:    sync.Mutex{},
-			SystemId: strconv.FormatInt(time.Now().UnixMilli(), 10),
-		}
-		systemIdAgentPool[agent.SystemId] = &agent
-		resp, err := agent.GetDeviceId()
+		reader := bufio.NewReader(conn)
+		var buf [4096]byte
+		n, err := reader.Read(buf[:]) // 读取数据
 		if err != nil {
-			log.Warnf("接收连接 获取设备号出错 %s %s", agent.SystemId, err.Error())
-			agent.Status = "接收连接 获取设备号出错"
+			log.Warnf("读取请求体出错 %s", err.Error())
+			_ = conn.Close()
 			continue
 		}
-		if resp == nil {
-			log.Warnf("接收连接 获取设备号为空 %s", agent.SystemId)
-			agent.Status = "接收连接 获取设备号为空"
-			continue
-		}
-		agent.DeviceId = resp.DeviceId
-		deviceIdAgentPool[resp.DeviceId] = &agent
-		deviceDO, err := entity.GetByDeviceId(agent.DeviceId)
-		if err != nil {
-			log.Warnf("接受连接 读取数据库出错 %s %s %s", agent.SystemId, agent.DeviceId, err.Error())
-			continue
-		}
-		if deviceDO == nil {
-			deviceDO = &entity.Device{
-				Name:     "lamp " + agent.SystemId,
-				DeviceId: agent.DeviceId,
-				Status:   agent.Status,
-			}
-			tx := entity.CreateDevice(deviceDO)
-			if tx.Error != nil {
-				log.Warnf("接受连接 设备写入数据库出错 %s %s %s", agent.SystemId, agent.DeviceId, tx.Error.Error())
-			}
-			if tx.RowsAffected == 0 {
-				log.Warnf("接受连接 设备写入数据库失败 %s %s", agent.SystemId, agent.DeviceId)
-			}
-			log.Infof("接受连接 设备写入数据库成功 %s %s", agent.SystemId, agent.DeviceId)
-		}
+		handle(buf[:n])
+	}
+}
+
+func handle(reqContent []byte) {
+	log.WithField("接收请求数据", reqContent).Info("接收请求数据")
+	if reqContent[0] != byte(0xA5) || reqContent[1] != byte(0x5A) || reqContent[2] != byte(0x04) {
+		log.Warnf("解析包 包头部不正确")
+		return
+	}
+	if reqContent[len(reqContent)-1] != byte(0xAA) || reqContent[len(reqContent)-2] != byte(0x55) {
+		log.Warnf("解析包 包结尾不正确")
+		return
+	}
+	length := int(reqContent[3])*256 + int(reqContent[4])
+	if length != len(reqContent) {
+		log.Warnf("解析包 返回包长度不等于实际包长度 包长度 %d 实际长度 %d", length, len(reqContent))
+		return
+	}
+	deviceId := hex.EncodeToString(reqContent[5:18])
+	dataLength := int(reqContent[21])*256 + int(reqContent[22])
+	if dataLength == 0 {
+		log.Warnf("上报数据长度为0")
+		return
+	}
+	data := reqContent[23 : 23+dataLength]
+	for i := 0; i < dataLength; i++ {
+
+	}
+	resp, err := getRespMsg(buf[:n])
+	if err != nil {
+		log.Warnf("向设备请求设备号 解析返回数据格式出错 %s", err.Error())
+		return nil, err
 	}
 }
