@@ -75,9 +75,8 @@ func handle(reqContent []byte) {
 	for i := 0; i < dataLength; i++ {
 
 	}
-	resp, err := getRespMsg(buf[:n])
-	if err != nil {
-		log.Warnf("向设备请求设备号 解析返回数据格式出错 %s", err.Error())
-		return nil, err
-	}
+}
+
+func refreshOnline() {
+	
 }

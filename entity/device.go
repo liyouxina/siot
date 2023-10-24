@@ -2,24 +2,37 @@ package entity
 
 import (
 	"gorm.io/gorm"
+	"time"
 )
 
 type Device struct {
-	Id       int64  `gorm:"primaryKey" json:"id"`
-	Name     string `json:"name"`
-	DeviceId string `json:"deviceId"`
-	Location string `json:"location"`
-	Status   string `json:"status"`
+	Id         int64     `gorm:"primaryKey" json:"id"`
+	Name       string    `json:"name"`
+	DeviceId   string    `json:"deviceId"`
+	Location   string    `json:"location"`
+	Status     string    `json:"status"`
+	CreateBy   string    `json:"createBy"`
+	CreateTime time.Time `json:"createTime" gorm:"type：timestamp"`
+	UpdateBy   string    `json:"updateBy"`
+	UpdateTime time.Time `json:"updateTime" gorm:"type：timestamp"`
 }
 
 func (Device) TableName() string {
 	return deviceTableName
 }
 
-const deviceTableName = "device"
+const (
+	deviceTableName = "device"
+	updateBy        = "数据定时上报"
+	createBy        = "数据上报"
+)
 
 func ChangeDeviceState(id int64, status string) *gorm.DB {
-	return db.Table(deviceTableName).Where("id = ?", id).UpdateColumn("status", status)
+	return db.Table(deviceTableName).Where("id = ?", id).UpdateColumns(Device{
+		Status:     status,
+		UpdateBy:   updateBy,
+		UpdateTime: time.Now(),
+	})
 }
 
 func GetByDeviceId(deviceId string) (*Device, error) {
@@ -29,10 +42,22 @@ func GetByDeviceId(deviceId string) (*Device, error) {
 }
 
 func CreateDevice(device *Device) *gorm.DB {
+	if device == nil {
+		return nil
+	}
+	device.CreateBy = createBy
+	device.CreateTime = time.Now()
 	return db.Table(deviceTableName).Create(device)
 }
 
 func BatchCreateDevice(devices []*Device) *gorm.DB {
+	if devices == nil || len(devices) == 0 {
+		return nil
+	}
+	for _, device := range devices {
+		device.CreateBy = createBy
+		device.CreateTime = time.Now()
+	}
 	return db.Table(deviceTableName).Create(devices)
 }
 
