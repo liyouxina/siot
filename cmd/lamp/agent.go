@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"github.com/liyouxina/siot/entity"
 	log "github.com/sirupsen/logrus"
+	"gorm.io/gorm"
 	"net"
 	"strconv"
 	"sync"
@@ -75,7 +76,7 @@ func byteServe() {
 		agent.DeviceId = resp.DeviceId
 		deviceIdAgentPool[resp.DeviceId] = &agent
 		deviceDO, err := entity.GetByDeviceId(agent.DeviceId)
-		if err != nil {
+		if err != nil && gorm.ErrRecordNotFound.Error() != err.Error() {
 			log.Warnf("接受连接 读取数据库出错 %s %s %s", agent.SystemId, agent.DeviceId, err.Error())
 			continue
 		}
