@@ -10,6 +10,7 @@ import (
 	"gorm.io/gorm"
 	"net"
 	"strconv"
+	"strings"
 	"sync"
 	"time"
 )
@@ -76,7 +77,7 @@ func byteServe() {
 		agent.DeviceId = resp.DeviceId
 		deviceIdAgentPool[resp.DeviceId] = &agent
 		deviceDO, err := entity.GetByDeviceId(agent.DeviceId)
-		if err != nil && gorm.ErrRecordNotFound.Error() != err.Error() {
+		if err != nil && strings.Index(err.Error(), gorm.ErrRecordNotFound.Error()) > 0 {
 			log.Warnf("接受连接 读取数据库出错 %s %s %s", agent.SystemId, agent.DeviceId, err.Error())
 			continue
 		}
