@@ -86,7 +86,9 @@ func byteServe() {
 				Name:     "lamp " + agent.SystemId,
 				DeviceId: agent.DeviceId,
 				Status:   agent.Status,
+				Type:     entity.LAMP_TYPE,
 			}
+			log.Infof("接收链接 创建新路灯设备 %s %s %s", agent.SystemId, agent.DeviceId, agent.Status)
 			tx := entity.CreateDevice(deviceDO)
 			if tx.Error != nil {
 				log.Warnf("接受连接 设备写入数据库出错 %s %s %s", agent.SystemId, agent.DeviceId, tx.Error.Error())
