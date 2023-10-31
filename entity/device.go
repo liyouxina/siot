@@ -11,6 +11,7 @@ type Device struct {
 	DeviceId   string    `json:"deviceId"`
 	Location   string    `json:"location"`
 	Status     string    `json:"status"`
+	Type       string    `json:"type"`
 	CreateBy   string    `json:"createBy"`
 	CreateTime time.Time `json:"createTime" gorm:"type：timestamp"`
 	UpdateBy   string    `json:"updateBy"`
@@ -25,6 +26,7 @@ const (
 	deviceTableName = "device"
 	updateBy        = "数据定时上报"
 	createBy        = "数据上报"
+	LAMP_TYPE       = "智能照明设备"
 )
 
 func ChangeDeviceState(id int64, status string) *gorm.DB {
@@ -64,5 +66,11 @@ func BatchCreateDevice(devices []*Device) *gorm.DB {
 func ListDeviceByCursor(id int64, limit int) []*Device {
 	devices := make([]*Device, limit)
 	db.Table(deviceTableName).Select("*").Where("id > ?", id).Limit(limit).Find(&devices)
+	return devices
+}
+
+func ListLampDeviceByCursor(id int64, limit int) []*Device {
+	devices := make([]*Device, limit)
+	db.Table(deviceTableName).Select("*").Where("id > ?", id).Where("type = ?", LAMP_TYPE).Limit(limit).Find(&devices)
 	return devices
 }

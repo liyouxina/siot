@@ -7,8 +7,10 @@ import (
 	"fmt"
 	"github.com/liyouxina/siot/entity"
 	log "github.com/sirupsen/logrus"
+	"gorm.io/gorm"
 	"net"
 	"strconv"
+	"strings"
 	"sync"
 	"time"
 )
@@ -75,7 +77,7 @@ func byteServe() {
 		agent.DeviceId = resp.DeviceId
 		deviceIdAgentPool[resp.DeviceId] = &agent
 		deviceDO, err := entity.GetByDeviceId(agent.DeviceId)
-		if err != nil {
+		if err != nil && strings.Index(err.Error(), gorm.ErrRecordNotFound.Error()) > 0 {
 			log.Warnf("接受连接 读取数据库出错 %s %s %s", agent.SystemId, agent.DeviceId, err.Error())
 			continue
 		}
@@ -84,7 +86,9 @@ func byteServe() {
 				Name:     "lamp " + agent.SystemId,
 				DeviceId: agent.DeviceId,
 				Status:   agent.Status,
+				Type:     entity.LAMP_TYPE,
 			}
+			log.Infof("接收链接 创建新路灯设备 %s %s %s", agent.SystemId, agent.DeviceId, agent.Status)
 			tx := entity.CreateDevice(deviceDO)
 			if tx.Error != nil {
 				log.Warnf("接受连接 设备写入数据库出错 %s %s %s", agent.SystemId, agent.DeviceId, tx.Error.Error())

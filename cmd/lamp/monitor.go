@@ -16,7 +16,7 @@ func monitor() {
 func scanAndKeepDevices() {
 	cursor := int64(0)
 	for {
-		devices := entity.ListDeviceByCursor(cursor, 50)
+		devices := entity.ListLampDeviceByCursor(cursor, 50)
 		if devices == nil || len(devices) == 0 {
 			break
 		}
