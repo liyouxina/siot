@@ -1,10 +1,12 @@
 package main
 
-import "net"
+import "fmt"
 
 func main() {
-	listen, _ := net.Listen("tcp4", "0.0.0.0:8005")
-	conn, _ := listen.Accept()
-	conn.Write([]byte{1, 2, 3})
-	conn.Close()
+	for i := 1; i < 50; i++ {
+		defer func() {
+			fmt.Println("--===========")
+		}()
+		fmt.Println(i)
+	}
 }
