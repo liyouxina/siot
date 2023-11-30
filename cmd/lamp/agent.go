@@ -334,3 +334,5 @@ func genVerifyCode(verifyContent []byte) byte {
 	}
 	return result
 }
+
+实时库存 要有上下限值
