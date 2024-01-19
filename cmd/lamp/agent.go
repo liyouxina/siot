@@ -27,9 +27,10 @@ type Agent struct {
 }
 
 const (
-	HEX_GET_DEVICE_ID   = "5aa506ffffffff00504c"
-	HEX_GET_DEVICE_INFO = "5aa506%s0051"
-	HEX_OPEN_CLOSE      = "5aa508%s0052%s%s"
+	HEX_GET_DEVICE_ID     = "5aa506ffffffff00504c"
+	HEX_GET_DEVICE_INFO   = "5aa506%s0051"
+	HEX_OPEN_CLOSE        = "5aa508%s0052%s%s"
+	HEX_SINGLE_OPEN_CLOSE = "5aa508%s00520304"
 )
 
 const (
@@ -170,6 +171,46 @@ func (agent *Agent) GetDeviceInfo() (*ByteResp, error) {
 		return nil, err
 	}
 	log.WithField("接受数据", resp).Info("获取设备信息 返回成功")
+	return resp, nil
+}
+
+func (agent *Agent) SingleOpenClose() (*ByteResp, error) {
+	agent.mutex.Lock()
+	defer agent.mutex.Unlock()
+	if agent.DeviceId == "" {
+		return nil, errors.New("开关设备 agent设备号为空")
+	}
+	conn := agent.Coon
+
+	requestString := fmt.Sprintf(HEX_SINGLE_OPEN_CLOSE, agent.DeviceId)
+	requestHexByte, err := hex.DecodeString(requestString)
+	if err != nil {
+		log.Warnf("开关设备 请求转换成16进制出错 %s", err.Error())
+		return nil, err
+	}
+	verifyCode := genVerifyCode(requestHexByte[3:])
+	requestHexByte = append(requestHexByte, verifyCode)
+	log.WithField("请求内容", requestHexByte).Infof("开关设备 请求内容")
+	_, err = conn.Write(requestHexByte)
+	if err != nil {
+		log.Warnf("开关设备 发送数据出错 %s", err.Error())
+		return nil, err
+	}
+	reader := bufio.NewReader(conn)
+	var buf [4096]byte
+	n, err := reader.Read(buf[:]) // 读取数据
+	if err != nil {
+		log.Warnf("开关设备 接收返回消息出错 %s", err.Error())
+		return nil, err
+	}
+
+	log.WithField("接收数据", buf[:n]).Info("开关设备 接收到数据")
+	resp, err := getRespMsg(buf[:n])
+	if err != nil {
+		log.Warnf("开关设备 解析返回数据格式出错 %s", err.Error())
+		return nil, err
+	}
+	log.WithField("接受数据", resp).Info("开关设备 返回成功")
 	return resp, nil
 }
 

@@ -19,6 +19,7 @@ func serve() {
 	server.GET("/sendMsgByDeviceId", sendMsgByDeviceId)
 	server.GET("/openLamp", sendMsgByDeviceId)
 	server.GET("/closeLamp", sendMsgByDeviceId)
+	server.GET("/openOrCloseLamp", openOrCloseLamp)
 	server.GET("/getDeviceInfo", getDeviceInfo)
 	server.GET("/", index)
 	_ = server.Run("0.0.0.0:8002")
@@ -64,6 +65,25 @@ func sendMsgBySystemId(context *gin.Context) {
 	context.JSON(200, Resp{
 		Msg: *resp,
 	})
+}
+
+func openOrCloseLamp(context *gin.Context) {
+	deviceId := context.Query("deviceId")
+	agent := deviceIdAgentPool[deviceId]
+	if agent == nil {
+		context.JSON(200, Resp{
+			Msg: "没找到这个设备",
+		})
+		return
+	}
+	resp, err := agent.SingleOpenClose()
+	if err != nil {
+		context.JSON(200, Resp{
+			Msg: err.Error(),
+		})
+		return
+	}
+	context.JSON(200, resp)
 }
 
 func sendMsgByDeviceId(context *gin.Context) {
