@@ -81,7 +81,7 @@ func byteServe() {
 			log.Warnf("接受连接 读取数据库出错 %s %s %s", agent.SystemId, agent.DeviceId, err.Error())
 			continue
 		}
-		if deviceDO == nil {
+		if deviceDO == nil || deviceDO.Id == 0 {
 			deviceDO = &entity.Device{
 				Name:     "lamp " + agent.SystemId,
 				DeviceId: agent.DeviceId,
