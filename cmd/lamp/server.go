@@ -19,7 +19,7 @@ func serve() {
 	server.GET("/sendMsgByDeviceId", sendMsgByDeviceId)
 	server.GET("/openLamp", sendMsgByDeviceId)
 	server.GET("/closeLamp", sendMsgByDeviceId)
-	server.GET("/openOrCloseLamp", openOrCloseLamp)
+	server.GET("/openOrCloseLamp", lightControl)
 	server.GET("/getDeviceInfo", getDeviceInfo)
 	server.GET("/", index)
 	_ = server.Run("0.0.0.0:8002")
@@ -67,8 +67,9 @@ func sendMsgBySystemId(context *gin.Context) {
 	})
 }
 
-func openOrCloseLamp(context *gin.Context) {
+func lightControl(context *gin.Context) {
 	deviceId := context.Query("deviceId")
+	light := context.Query("light")
 	agent := deviceIdAgentPool[deviceId]
 	if agent == nil {
 		context.JSON(200, Resp{
@@ -76,7 +77,7 @@ func openOrCloseLamp(context *gin.Context) {
 		})
 		return
 	}
-	resp, err := agent.SingleOpenClose()
+	resp, err := agent.SingleLightControl(light)
 	if err != nil {
 		context.JSON(200, Resp{
 			Msg: err.Error(),

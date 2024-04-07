@@ -30,7 +30,7 @@ const (
 	HEX_GET_DEVICE_ID     = "5aa506ffffffff00504c"
 	HEX_GET_DEVICE_INFO   = "5aa506%s0051"
 	HEX_OPEN_CLOSE        = "5aa508%s0052%s%s"
-	HEX_SINGLE_OPEN_CLOSE = "5aa508%s00520304"
+	HEX_SINGLE_OPEN_CLOSE = "5aa507%s0052%s"
 )
 
 const (
@@ -174,7 +174,7 @@ func (agent *Agent) GetDeviceInfo() (*ByteResp, error) {
 	return resp, nil
 }
 
-func (agent *Agent) SingleOpenClose() (*ByteResp, error) {
+func (agent *Agent) SingleLightControl(light string) (*ByteResp, error) {
 	agent.mutex.Lock()
 	defer agent.mutex.Unlock()
 	if agent.DeviceId == "" {
@@ -182,7 +182,7 @@ func (agent *Agent) SingleOpenClose() (*ByteResp, error) {
 	}
 	conn := agent.Coon
 
-	requestString := fmt.Sprintf(HEX_SINGLE_OPEN_CLOSE, agent.DeviceId)
+	requestString := fmt.Sprintf(HEX_SINGLE_OPEN_CLOSE, agent.DeviceId, light)
 	requestHexByte, err := hex.DecodeString(requestString)
 	if err != nil {
 		log.Warnf("开关设备 请求转换成16进制出错 %s", err.Error())
@@ -321,7 +321,11 @@ type ByteResp struct {
 }
 
 type DeviceInfoResp struct {
-	Signal     int `json:"signal"`     // 信号强度
+	Signal     int `json:"signal"` // 信号强度
+	One        int `json:"one"`
+	Two        int `json:"two"`
+	Three      int `json:"three"`
+	Four       int `json:"four"`
 	OpenStatus int `json:"openStatus"` // 开关状态
 	OuterOpen  int `json:"outerOpen"`  // 外部开关量
 	Light      int `json:"light"`      // 光照值
@@ -348,6 +352,10 @@ func getRespMsg(content []byte) (*ByteResp, error) {
 		return nil, errors.New("解析包 返回未知的操作指令")
 	}
 	if content[8] != COMMAND_GET_DEVICE_ID {
+		result.One = int(content[6])
+		result.Two = int(content[7])
+		result.Three = int(content[8])
+		result.Four = int(content[9])
 		result.Signal = int(content[9])
 		result.OpenStatus = int(content[10])
 		result.OuterOpen = int(content[11])

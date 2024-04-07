@@ -10,11 +10,11 @@ var value = 0
 
 func main() {
 	lock = sync.Mutex{}
-	fmt.Println("asdasd")
-	print()
+	go print()
 	for i := 0; i < 30; i++ {
 		go print()
 	}
+
 }
 
 func print() {
